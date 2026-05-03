@@ -46,6 +46,7 @@
     justify-content: flex-start;
     padding: max(env(safe-area-inset-top), 10px) 12px max(env(safe-area-inset-bottom), 10px);
     height: 100dvh;
+    gap: 0;
   }
 
   body::before {
@@ -148,11 +149,9 @@
     font-weight: 700;
   }
 
-  /* ── Board ── */
   .puzzle-wrapper {
     position: relative; z-index: 1;
     flex-shrink: 0;
-    touch-action: none;
   }
 
   .puzzle-board {
@@ -163,7 +162,6 @@
     box-shadow: 0 0 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(126,255,245,0.04);
     touch-action: none;
     position: relative;
-    overflow: hidden;
   }
 
   .tile {
@@ -176,13 +174,16 @@
     font-family: 'Syne', sans-serif;
     font-weight: 700;
     color: var(--text);
-    position: absolute; /* absolute for free dragging */
+    position: relative;
     overflow: hidden;
     -webkit-tap-highlight-color: transparent;
-    cursor: grab;
+    cursor: pointer;
     will-change: transform;
-    transition: box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
-    user-select: none;
+    transition:
+      transform 0.14s cubic-bezier(0.34, 1.4, 0.64, 1),
+      background 0.1s ease,
+      border-color 0.1s ease,
+      box-shadow 0.1s ease;
   }
 
   .tile::before {
@@ -193,26 +194,36 @@
     border-radius: inherit;
   }
 
+  .tile.pressing:not(.empty) {
+    transform: scale(0.88) !important;
+    background: #252538;
+    border-color: rgba(126,255,245,0.5);
+    box-shadow: 0 0 20px rgba(126,255,245,0.2);
+    transition-duration: 0.07s;
+  }
+
   .tile.empty {
     background: rgba(126,255,245,0.02);
     border: 1.5px dashed rgba(126,255,245,0.12);
     cursor: default;
     box-shadow: inset 0 0 24px rgba(0,0,0,0.4);
-    z-index: 0 !important;
   }
   .tile.empty::before { display: none; }
+
+  .tile.movable:not(.empty) {
+    border-color: rgba(126,255,245,0.2);
+    box-shadow: 0 0 0 1px rgba(126,255,245,0.07);
+  }
+
+  .tile.sliding {
+    transition: transform 0.19s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
+    z-index: 10;
+  }
 
   .tile.correct {
     background: linear-gradient(135deg, #192a1b, #152018);
     border-color: rgba(80, 200, 100, 0.28);
     color: #68ee82;
-  }
-
-  .tile.dragging {
-    cursor: grabbing;
-    border-color: rgba(126,255,245,0.5);
-    box-shadow: 0 8px 30px rgba(126,255,245,0.2);
-    z-index: 50 !important;
   }
 
   .tile-num {
@@ -221,7 +232,6 @@
     pointer-events: none;
   }
 
-  /* ── Actions ── */
   .action-bar {
     display: flex;
     gap: 10px;
@@ -246,10 +256,14 @@
     letter-spacing: 0.3px;
     min-height: 48px;
     -webkit-tap-highlight-color: transparent;
-    transition: transform 0.1s, background 0.1s;
+    transition: transform 0.1s, background 0.1s, border-color 0.1s;
   }
   .btn:active { transform: scale(0.94); }
-  .btn.primary { background: var(--accent); color: #0d0d12; border-color: var(--accent); }
+  .btn.primary {
+    background: var(--accent);
+    color: #0d0d12;
+    border-color: var(--accent);
+  }
   .btn.primary:active { background: #5ef5eb; }
 
   .hint {
@@ -264,14 +278,16 @@
     transition: opacity 0.6s ease;
   }
 
-  /* ── Win ── */
   .win-overlay {
     position: fixed; inset: 0;
     background: rgba(13,13,18,0.94);
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     z-index: 100;
-    opacity: 0; pointer-events: none;
+    opacity: 0;
+    pointer-events: none;
     transition: opacity 0.4s ease;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
@@ -303,17 +319,23 @@
   .win-stats span { color: var(--accent); }
 
   .win-btn {
-    background: var(--accent); color: #0d0d12;
-    border: none; font-family: 'Syne', sans-serif;
-    font-size: 1rem; font-weight: 800;
-    padding: 17px 52px; border-radius: 50px;
-    cursor: pointer; min-height: 56px;
+    background: var(--accent);
+    color: #0d0d12;
+    border: none;
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 800;
+    padding: 17px 52px;
+    border-radius: 50px;
+    cursor: pointer;
+    min-height: 56px;
     -webkit-tap-highlight-color: transparent;
     transition: transform 0.1s;
   }
   .win-btn:active { transform: scale(0.95); }
 
   .confetti-container { position: fixed; inset: 0; pointer-events: none; z-index: 99; overflow: hidden; }
+
   .confetti-piece {
     position: absolute;
     animation: fall linear forwards;
@@ -361,7 +383,7 @@
   <button class="btn" id="solveBtn">✨ Resolver</button>
 </div>
 
-<div class="hint" id="hint">Arraste uma fila de peças em direção ao espaço vazio</div>
+<div class="hint" id="hint">Toque ou deslize para mover as peças</div>
 
 <div class="win-overlay" id="winOverlay">
   <div class="win-title">🎉 Você venceu!</div>
@@ -372,18 +394,12 @@
 <div class="confetti-container" id="confettiContainer"></div>
 
 <script>
-// ── State ──────────────────────────────────────────────────────────────────
-let size = 4;
-let tiles = []; // logical grid: value at each index (0 = empty)
-let emptyIdx = 0;
-let moves = 0, seconds = 0;
-let timerInterval = null, gameStarted = false, won = false, solving = false;
+let size = 4, tiles = [], emptyIdx = 0, moves = 0, seconds = 0;
+let timerInterval = null, gameStarted = false, won = false;
+let tileSize = 70, solving = false, animating = false;
 const GAP = 5;
-let tileSize = 70;
-let boardPad = GAP;
 
-// DOM
-const boardEl    = document.getElementById('board');
+const board      = document.getElementById('board');
 const movesVal   = document.getElementById('movesVal');
 const timeVal    = document.getElementById('timeVal');
 const winOverlay = document.getElementById('winOverlay');
@@ -391,299 +407,249 @@ const winStats   = document.getElementById('winStats');
 const confettiEl = document.getElementById('confettiContainer');
 const hintEl     = document.getElementById('hint');
 
-// ── Tile size ──────────────────────────────────────────────────────────────
 function computeTileSize() {
-  const hUsed = 10 + 56 + 6 + 46 + 8 + 52 + 8 + 60 + 9 + 32 + 10;
+  const hUsed = 10+56+6+46+8+52+8+60+9+32+10;
   const avW = window.innerWidth - 24;
   const avH = window.innerHeight - hUsed;
   const avail = Math.min(avW, avH, 520);
-  return Math.max(30, Math.floor((avail - (size + 1) * GAP) / size));
+  return Math.max(30, Math.floor((avail-(size+1)*GAP)/size));
 }
 
-function boardPixel(idx) {
-  // top-left pixel of tile at logical index
-  const r = Math.floor(idx / size), c = idx % size;
-  return {
-    x: boardPad + c * (tileSize + GAP),
-    y: boardPad + r * (tileSize + GAP)
-  };
-}
-
-// ── Puzzle logic ───────────────────────────────────────────────────────────
 function isSolvable(arr, n) {
   let inv = 0;
   const flat = arr.filter(v => v !== 0);
-  for (let i = 0; i < flat.length - 1; i++)
-    for (let j = i + 1; j < flat.length; j++)
+  for (let i = 0; i < flat.length-1; i++)
+    for (let j = i+1; j < flat.length; j++)
       if (flat[i] > flat[j]) inv++;
-  if (n % 2 === 1) return inv % 2 === 0;
-  const er = Math.floor(arr.indexOf(0) / n);
-  const fb = n - er;
-  return fb % 2 === 0 ? inv % 2 === 1 : inv % 2 === 0;
+  if (n%2===1) return inv%2===0;
+  const er = Math.floor(arr.indexOf(0)/n);
+  const fb = n-er;
+  return fb%2===0 ? inv%2===1 : inv%2===0;
 }
 
-function doShuffle() {
+function shuffle() {
   let arr;
-  do { arr = [...Array(size * size).keys()].sort(() => Math.random() - 0.5); }
-  while (!isSolvable(arr, size) || isSolved(arr));
+  do { arr = [...Array(size*size).keys()].sort(()=>Math.random()-0.5); }
+  while (!isSolvable(arr,size) || isSolved(arr));
   return arr;
 }
 
 function isSolved(arr) {
-  return arr.every((v, i) => v === (i === arr.length - 1 ? 0 : i + 1));
+  return arr.every((v,i) => v===(i===arr.length-1?0:i+1));
+}
+
+function getMovable() {
+  const mv=[], r=Math.floor(emptyIdx/size), c=emptyIdx%size;
+  for (const [nr,nc] of [[r-1,c],[r+1,c],[r,c-1],[r,c+1]])
+    if (nr>=0&&nr<size&&nc>=0&&nc<size) mv.push(nr*size+nc);
+  return mv;
 }
 
 function formatTime(s) { return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; }
 function startTimer() {
-  clearInterval(timerInterval); seconds = 0;
-  timerInterval = setInterval(() => { seconds++; timeVal.textContent = formatTime(seconds); }, 1000);
+  clearInterval(timerInterval); seconds=0;
+  timerInterval=setInterval(()=>{seconds++;timeVal.textContent=formatTime(seconds);},1000);
 }
 function stopTimer() { clearInterval(timerInterval); }
 
-// ── Render (absolute positioned tiles) ────────────────────────────────────
-let tileEls = []; // tileEls[logicalIdx] = DOM element
-
 function render() {
-  tileSize = computeTileSize();
-  boardPad = GAP;
-  const boardSize = boardPad * 2 + size * tileSize + (size - 1) * GAP;
-  boardEl.style.width  = boardSize + 'px';
-  boardEl.style.height = boardSize + 'px';
-  boardEl.innerHTML = '';
-  tileEls = [];
-
-  const fs = Math.max(10, Math.min(tileSize * 0.39, 36));
-
-  for (let idx = 0; idx < size * size; idx++) {
-    const val = tiles[idx];
-    const el = document.createElement('div');
-    el.className = 'tile' + (val === 0 ? ' empty' : '');
-    if (val !== 0 && val === idx + 1) el.classList.add('correct');
-    el.style.cssText = `width:${tileSize}px;height:${tileSize}px;font-size:${fs}px;z-index:1;`;
-
-    if (val !== 0) {
-      const span = document.createElement('span');
-      span.className = 'tile-num';
-      span.textContent = val;
-      el.appendChild(span);
-    }
-
-    const pos = boardPixel(idx);
-    el.style.left = pos.x + 'px';
-    el.style.top  = pos.y + 'px';
-    el.style.transition = 'left 0.18s cubic-bezier(0.25,0.46,0.45,0.94), top 0.18s cubic-bezier(0.25,0.46,0.45,0.94)';
-
-    tileEls[idx] = el;
-    boardEl.appendChild(el);
-  }
-
-  attachDrag();
-}
-
-// ── Drag logic ─────────────────────────────────────────────────────────────
-/*
-  When user touches a tile:
-  1. Determine which row/col they touched
-  2. Determine if empty is in same row or same col
-  3. Figure out which direction the drag can go (toward empty)
-  4. On drag: clamp movement, move the GROUP of tiles between touched tile and empty
-  5. On release: snap — if dragged more than 50% of one tile step, commit all moves; else snap back
-*/
-
-let drag = null; // active drag state
-
-function attachDrag() {
-  for (let idx = 0; idx < size * size; idx++) {
-    if (tiles[idx] === 0) continue; // skip empty
-    const el = tileEls[idx];
-    el.addEventListener('touchstart', e => onDragStart(e, idx), { passive: true });
-  }
-  // Also handle touchmove/end globally
-}
-
-document.addEventListener('touchmove', onDragMove, { passive: false });
-document.addEventListener('touchend',  onDragEnd,  { passive: true  });
-
-function onDragStart(e, touchedIdx) {
-  if (won || solving || drag) return;
-
-  const tr = Math.floor(touchedIdx / size), tc = touchedIdx % size;
-  const er = Math.floor(emptyIdx / size),   ec = emptyIdx % size;
-
-  // Determine axis and direction
-  let axis = null, dir = null, groupIdxs = [];
-
-  if (tr === er) {
-    // Same row — horizontal drag possible
-    axis = 'h';
-    if (ec < tc) {
-      // empty is to the LEFT of touched tile → can drag LEFT (toward empty)
-      dir = -1;
-      for (let c = ec + 1; c <= tc; c++) groupIdxs.push(tr * size + c);
+  tileSize=computeTileSize();
+  board.style.gridTemplateColumns=`repeat(${size},${tileSize}px)`;
+  board.style.gap=GAP+'px'; board.style.padding=GAP+'px';
+  board.innerHTML='';
+  const movable=getMovable();
+  const fs=Math.max(10,Math.min(tileSize*0.39,36));
+  tiles.forEach((val,idx)=>{
+    const tile=document.createElement('div');
+    tile.className='tile';
+    tile.style.cssText=`width:${tileSize}px;height:${tileSize}px;font-size:${fs}px;`;
+    if(val===0){
+      tile.classList.add('empty');
     } else {
-      // empty is to the RIGHT → can drag RIGHT
-      dir = 1;
-      for (let c = tc; c < ec; c++) groupIdxs.push(tr * size + c);
+      if(val===idx+1) tile.classList.add('correct');
+      if(movable.includes(idx)) tile.classList.add('movable');
+      const span=document.createElement('span');
+      span.className='tile-num'; span.textContent=val;
+      tile.appendChild(span);
+      bindTile(tile,idx);
     }
-  } else if (tc === ec) {
-    // Same col — vertical drag possible
-    axis = 'v';
-    if (er < tr) {
-      // empty is ABOVE → can drag UP
-      dir = -1;
-      for (let r = er + 1; r <= tr; r++) groupIdxs.push(r * size + tc);
-    } else {
-      // empty is BELOW → can drag DOWN
-      dir = 1;
-      for (let r = tr; r < er; r++) groupIdxs.push(r * size + tc);
-    }
-  }
-
-  if (!axis) return; // not in same row/col as empty
-
-  const step = tileSize + GAP;
-  const maxMove = step * groupIdxs.length * dir; // total pixels if fully committed
-
-  drag = {
-    axis,
-    dir,
-    groupIdxs,       // logical indices of tiles being dragged
-    step,
-    startX: e.touches[0].clientX,
-    startY: e.touches[0].clientY,
-    offset: 0,       // current pixel offset
-    maxPixels: step  // maximum drag distance (1 tile step at a time commit later)
-  };
-
-  // Lift tiles visually
-  groupIdxs.forEach(i => {
-    tileEls[i].classList.add('dragging');
-    tileEls[i].style.transition = 'none';
-    tileEls[i].style.zIndex = '20';
+    board.appendChild(tile);
   });
-
-  if (!gameStarted) {
-    gameStarted = true;
-    startTimer();
-    hintEl.style.opacity = '0';
-  }
 }
 
-function onDragMove(e) {
-  if (!drag) return;
+function bindTile(el,idx) {
+  let tStart=0, moved=false;
+  el.addEventListener('touchstart',e=>{
+    if(won||solving||animating) return;
+    tStart=Date.now(); moved=false;
+    el.classList.add('pressing');
+  },{passive:true});
+  el.addEventListener('touchmove',()=>{moved=true;el.classList.remove('pressing');},{passive:true});
+  el.addEventListener('touchend',e=>{
+    el.classList.remove('pressing');
+    if(won||solving||animating) return;
+    if(!moved&&Date.now()-tStart<400){e.preventDefault();handleMove(idx);}
+  },{passive:false});
+  el.addEventListener('click',()=>{if(!won&&!solving&&!animating)handleMove(idx);});
+}
+
+let swipeStartX=0,swipeStartY=0,swipeMoved=false;
+board.addEventListener('touchstart',e=>{
+  swipeStartX=e.touches[0].clientX; swipeStartY=e.touches[0].clientY; swipeMoved=false;
+},{passive:true});
+board.addEventListener('touchmove',e=>{
+  const dx=e.touches[0].clientX-swipeStartX, dy=e.touches[0].clientY-swipeStartY;
+  if(Math.abs(dx)>10||Math.abs(dy)>10) swipeMoved=true;
   e.preventDefault();
-
-  const dx = e.touches[0].clientX - drag.startX;
-  const dy = e.touches[0].clientY - drag.startY;
-  let raw = drag.axis === 'h' ? dx : dy;
-
-  // Only allow movement toward empty (correct direction)
-  if (Math.sign(raw) !== drag.dir && raw !== 0) raw = 0;
-
-  // Clamp: can't go further than step (one tile)
-  const maxAbs = drag.step;
-  raw = Math.max(-maxAbs, Math.min(maxAbs, raw));
-  // Also clamp to direction
-  if (drag.dir === 1)  raw = Math.max(0, raw);
-  if (drag.dir === -1) raw = Math.min(0, raw);
-
-  drag.offset = raw;
-
-  // Move tiles
-  drag.groupIdxs.forEach(i => {
-    const base = boardPixel(i);
-    if (drag.axis === 'h') {
-      tileEls[i].style.left = (base.x + raw) + 'px';
-    } else {
-      tileEls[i].style.top  = (base.y + raw) + 'px';
-    }
-  });
-}
-
-function onDragEnd() {
-  if (!drag) return;
-  const { axis, dir, groupIdxs, step, offset } = drag;
-  drag = null;
-
-  const threshold = step * 0.35;
-  const commit = Math.abs(offset) >= threshold;
-
-  // Re-enable transitions
-  groupIdxs.forEach(i => {
-    tileEls[i].style.transition = 'left 0.18s cubic-bezier(0.25,0.46,0.45,0.94), top 0.18s cubic-bezier(0.25,0.46,0.45,0.94)';
-    tileEls[i].style.zIndex = '1';
-    tileEls[i].classList.remove('dragging');
-  });
-
-  if (commit) {
-    // Animate to committed position, then update state
-    groupIdxs.forEach(i => {
-      const target = axis === 'h'
-        ? boardPixel(i).x + dir * step
-        : boardPixel(i).y + dir * step; // wrong — use new logical position
-
-      // New logical position after shift
-      const newIdx = axis === 'h' ? i + dir : i + dir * size;
-      const newPos = boardPixel(newIdx);
-      if (axis === 'h') tileEls[i].style.left = newPos.x + 'px';
-      else              tileEls[i].style.top  = newPos.y + 'px';
-    });
-
-    setTimeout(() => {
-      // Update logical state: shift all tiles in group toward empty
-      // groupIdxs ordered from empty outward, shift one by one
-      const sorted = [...groupIdxs];
-      // Sort so the tile closest to empty moves first into it
-      sorted.sort((a, b) => {
-        if (axis === 'h') return dir === -1 ? a - b : b - a;
-        else              return dir === -1 ? a - b : b - a;
-      });
-
-      sorted.forEach(i => {
-        const newI = axis === 'h' ? i + dir : i + dir * size;
-        tiles[newI] = tiles[i];
-        tiles[i] = 0;
-        emptyIdx = i;
-      });
-      emptyIdx = sorted[0]; // the original tile closest to empty is now the new empty... wait recalculate
-      emptyIdx = tiles.indexOf(0);
-      moves++;
-      movesVal.textContent = moves;
-      render();
-      if (isSolved(tiles)) { stopTimer(); won = true; setTimeout(showWin, 350); }
-    }, 190);
+},{passive:false});
+board.addEventListener('touchend',e=>{
+  if(!swipeMoved||won||solving||animating) return;
+  const dx=e.changedTouches[0].clientX-swipeStartX, dy=e.changedTouches[0].clientY-swipeStartY;
+  if(Math.abs(dx)<14&&Math.abs(dy)<14) return;
+  const er=Math.floor(emptyIdx/size), ec=emptyIdx%size;
+  let t=-1;
+  if(Math.abs(dx)>Math.abs(dy)){
+    if(dx>0&&ec>0) t=er*size+(ec-1);
+    if(dx<0&&ec<size-1) t=er*size+(ec+1);
   } else {
-    // Snap back
-    groupIdxs.forEach(i => {
-      const pos = boardPixel(i);
-      tileEls[i].style.left = pos.x + 'px';
-      tileEls[i].style.top  = pos.y + 'px';
-    });
+    if(dy>0&&er>0) t=(er-1)*size+ec;
+    if(dy<0&&er<size-1) t=(er+1)*size+ec;
   }
+  if(t>=0) handleMove(t);
+},{passive:true});
+
+function handleMove(idx) {
+  if(won||solving||animating) return;
+  if(!getMovable().includes(idx)) return;
+  if(!gameStarted){gameStarted=true;startTimer();hintEl.style.opacity='0';}
+  animating=true;
+  const fc=idx%size, fr=Math.floor(idx/size);
+  const tc=emptyIdx%size, tr=Math.floor(emptyIdx/size);
+  const el=board.children[idx];
+  el.classList.add('sliding');
+  el.classList.remove('pressing','movable','correct');
+  el.style.transform=`translate(${(tc-fc)*(tileSize+GAP)}px,${(tr-fr)*(tileSize+GAP)}px)`;
+  setTimeout(()=>{
+    el.classList.remove('sliding'); el.style.transform='';
+    [tiles[idx],tiles[emptyIdx]]=[tiles[emptyIdx],tiles[idx]];
+    emptyIdx=idx; moves++; movesVal.textContent=moves;
+    animating=false; render();
+    if(isSolved(tiles)){stopTimer();won=true;setTimeout(showWin,350);}
+  },210);
 }
 
-// ── New game ───────────────────────────────────────────────────────────────
 function newGame() {
-  won = false; solving = false; gameStarted = false; drag = null;
-  moves = 0; movesVal.textContent = '0';
-  stopTimer(); timeVal.textContent = '0:00';
-  tiles = doShuffle(); emptyIdx = tiles.indexOf(0);
+  won=false;solving=false;animating=false;gameStarted=false;
+  moves=0;movesVal.textContent='0';
+  stopTimer();timeVal.textContent='0:00';
+  tiles=shuffle();emptyIdx=tiles.indexOf(0);
   winOverlay.classList.remove('visible');
-  confettiEl.innerHTML = '';
-  hintEl.style.opacity = '0.7';
+  confettiEl.innerHTML='';
+  hintEl.style.opacity='0.7';
   render();
 }
 
-// ── Solve ──────────────────────────────────────────────────────────────────
 function solveGame() {
-  if (solving || won) return;
-  solving = true;
-  const goal = [...Array(size * size).keys()].map((v, i) => i === size * size - 1 ? 0 : i + 1);
+  if(solving||animating||won) return;
+  solving=true;
+  const goal=[...Array(size*size).keys()].map((v,i)=>i===size*size-1?0:i+1);
+  if(size===3){
+    const gs=goal.join(','), ss=tiles.join(',');
+    if(ss===gs){solving=false;return;}
+    const Q=[{s:[...tiles],p:[]}], vis=new Set([ss]);
+    let found=null;
+    outer: while(Q.length){
+      const{s,p}=Q.shift();
+      const ei=s.indexOf(0),r=Math.floor(ei/size),c=ei%size;
+      for(const[nr,nc]of[[r-1,c],[r+1,c],[r,c-1],[r,c+1]]){
+        if(nr<0||nr>=size||nc<0||nc>=size) continue;
+        const ni=nr*size+nc,nx=[...s];
+        [nx[ei],nx[ni]]=[nx[ni],nx[ei]];
+        const k=nx.join(',');
+        if(k===gs){found=[...p,ni];break outer;}
+        if(!vis.has(k)){vis.add(k);Q.push({s:nx,p:[...p,ni]});}
+      }
+    }
+    if(found){stopTimer();playPath(found);}else solving=false;
+  } else {
+    stopTimer();
+    board.style.transition='all 0.25s ease';
+    board.style.opacity='0.25';board.style.transform='scale(0.94)';
+    setTimeout(()=>{
+      tiles=[...goal];emptyIdx=tiles.indexOf(0);
+      moves=0;movesVal.textContent='0';render();
+      board.style.opacity='1';board.style.transform='scale(1)';
+      setTimeout(()=>{board.style.transition='';solving=false;},260);
+    },270);
+  }
+}
 
-  if (size === 3) {
-    const gs = goal.join(','), ss = tiles.join(',');
-    if (ss === gs) { solving = false; return; }
-    const Q = [{ s: [...tiles], p: [] }], vis = new Set([ss]);
-    let found = null;
-    outer: while (Q.length) {
-      const { s, 
+function playPath(path) {
+  if(!path.length){solving=false;render();return;}
+  const idx=path[0];
+  animating=true;
+  const fc=idx%size,fr=Math.floor(idx/size);
+  const tc=emptyIdx%size,tr=Math.floor(emptyIdx/size);
+  const el=board.children[idx];
+  el.classList.add('sliding');
+  el.style.transform=`translate(${(tc-fc)*(tileSize+GAP)}px,${(tr-fr)*(tileSize+GAP)}px)`;
+  setTimeout(()=>{
+    el.classList.remove('sliding');el.style.transform='';
+    [tiles[idx],tiles[emptyIdx]]=[tiles[emptyIdx],tiles[idx]];
+    emptyIdx=idx;moves++;movesVal.textContent=moves;
+    animating=false;render();
+    setTimeout(()=>playPath(path.slice(1)),55);
+  },140);
+}
+
+function showWin() {
+  winStats.innerHTML=`Movimentos: <span>${moves}</span><br>Tempo: <span>${formatTime(seconds)}</span><br>Grade: <span>${size}×${size}</span>`;
+  winOverlay.classList.add('visible');
+  launchConfetti();
+}
+
+function launchConfetti() {
+  const cols=['#7efff5','#ff6b8a','#ffe066','#a78bfa','#6effa0','#ffa07a'];
+  for(let i=0;i<65;i++){
+    const el=document.createElement('div');
+    el.className='confetti-piece';
+    const w=6+Math.random()*8,h=Math.random()>0.5?w:w*0.4;
+    el.style.cssText=`left:${Math.random()*100}vw;width:${w}px;height:${h}px;
+      background:${cols[~~(Math.random()*cols.length)]};
+      border-radius:${Math.random()>0.4?'50%':'2px'};
+      animation-duration:${2.5+Math.random()*3}s;
+      animation-delay:${Math.random()*1.2}s;`;
+    confettiEl.appendChild(el);
+  }
+  setTimeout(()=>confettiEl.innerHTML='',7000);
+}
+
+document.getElementById('sizeSelector').addEventListener('click',e=>{
+  const btn=e.target.closest('.size-btn');
+  if(!btn) return;
+  document.querySelectorAll('.size-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  size=+btn.dataset.size;
+  newGame();
+});
+
+document.getElementById('shuffleBtn').addEventListener('click',newGame);
+document.getElementById('solveBtn').addEventListener('click',solveGame);
+document.getElementById('winNewGame').addEventListener('click',newGame);
+
+document.addEventListener('keydown',e=>{
+  if(won||solving) return;
+  const r=Math.floor(emptyIdx/size),c=emptyIdx%size;
+  let t=-1;
+  if(e.key==='ArrowUp'&&r<size-1) t=(r+1)*size+c;
+  if(e.key==='ArrowDown'&&r>0) t=(r-1)*size+c;
+  if(e.key==='ArrowLeft'&&c<size-1) t=r*size+(c+1);
+  if(e.key==='ArrowRight'&&c>0) t=r*size+(c-1);
+  if(t>=0){e.preventDefault();handleMove(t);}
+});
+
+window.addEventListener('resize',()=>render());
+newGame();
+</script>
+</body>
+  </html>
